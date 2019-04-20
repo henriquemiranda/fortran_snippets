@@ -1,5 +1,5 @@
 FC := gfortran
-FCFLAGS := -g
+FCFLAGS := -g -Wall
 
 all: octree
 

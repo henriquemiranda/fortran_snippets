@@ -1,12 +1,13 @@
 module m_octree
 
   implicit none
-  integer,parameter :: dp=8
-  integer,parameter :: MAX_DEPTH=50
+
   integer,parameter :: POINTS_SIZE=10
   integer,parameter :: POINTS_STEP=10
 
-  real(dp),parameter :: zero=0.0,half=0.5,one=1.0
+  integer,parameter :: dp=8
+  real(dp),parameter :: zero=0.0_dp,half=0.5_dp,one=1.0_dp
+
   real(dp) :: shifts(3,2,4)
 
   type :: octree_node_t
@@ -36,7 +37,7 @@ module m_octree
     real(dp) :: hi(3), lo(3)
     integer :: ii, jj, kk, npoints, ioctant
 
-    !determine shifts
+    ! determine shifts
     do ii=0,1
       do jj=0,1
         do kk=0,1
@@ -47,7 +48,7 @@ module m_octree
       end do
     end do
 
-    !determine hi and lo
+    ! determine hi and lo
     do ii=1,3
       hi(ii) = maxval(points(ii,:))+ieps
       lo(ii) = minval(points(ii,:))-ieps
@@ -187,7 +188,7 @@ module m_octree
     integer :: ii, jj, kk
     integer :: trial_id
     real(dp) :: hi(3), lo(3), de(3), trial_shift(3)
-    real(dp) :: trial_dist,  min_dist
+    real(dp) :: trial_dist
     ! find nearest in unshifted case
     id = octn_find_nearest(octree,octree%first,point,dist)
     ! find the shift that brings the point closer to the box
@@ -212,6 +213,25 @@ module m_octree
     if (trial_dist>dist) return
     dist = trial_dist
     id = trial_id
+  end function
+
+  integer recursive function octn_free(octn) result(ierr)
+    type(octree_node_t) :: octn
+    integer :: ioctant
+    ! if leaf deallocate ids
+    if (allocated(octn%ids)) then
+      deallocate(octn%ids)
+    else
+      do ioctant=1,8
+        ierr = octn_free(octn%childs(ioctant))
+      end do
+    end if
+  end function
+
+  integer function octree_free(octree) result(ierr)
+    ! Free octree datastructure
+    type(octree_t),target,intent(in) :: octree
+    ierr = octn_free(octree%first)
   end function
 
   pure real(dp) function dist_points(p1,p2) result(dist)
@@ -308,7 +328,7 @@ program octree_main
     dist = box_dist([zero,zero,zero],[one,one,one],[-0.1_dp,0.1_dp,0.0_dp])
   end block test_box_dist
 
-  test_init: block
+  test_octree_init: block
     call random_number(points)
     !do ipoint=1,n
     !  write(*,'(i3,3f12.6)') ipoint, points(:,ipoint)
@@ -318,9 +338,9 @@ program octree_main
     oct = octree_init(points,10)
     call cpu_time(stop_time)
     write(*,'(a30,f12.6,a)') 'octree init took:',stop_time-start_time,' [s]'
-  end block test_init
+  end block test_octree_init
 
-  octree_search: block
+  test_octree_find: block
     call cpu_time(start_time)
     do ipoint=1,n
       id = octree_find(oct,points(:,ipoint),dist)
@@ -328,9 +348,9 @@ program octree_main
     end do
     call cpu_time(stop_time)
     write(*,'(a30,f12.6,a)') 'octree find took:',(stop_time-start_time), ' [s]'
-  end block octree_search
+  end block test_octree_find
 
-  octree_search_nearest: block
+  test_octree_find_nearest: block
     call cpu_time(start_time)
     do ipoint=1,n
       dist = zero
@@ -340,9 +360,9 @@ program octree_main
     end do
     call cpu_time(stop_time)
     write(*,'(a30,f12.6,a)') 'octree find_nearest took:',(stop_time-start_time), ' [s]'
-  end block octree_search_nearest
+  end block test_octree_find_nearest
 
-  octree_search_nearest_pbc: block
+  test_octree_find_nearest_pbc: block
     real(dp) :: shift(3)
     call cpu_time(start_time)
     do ipoint=1,n
@@ -353,7 +373,15 @@ program octree_main
     end do
     call cpu_time(stop_time)
     write(*,'(a30,f12.6,a)') 'octree find_nearest_pbc took:',(stop_time-start_time), ' [s]'
-  end block octree_search_nearest_pbc
+  end block test_octree_find_nearest_pbc
+
+  test_octree_free: block
+    integer :: ierr
+    call cpu_time(start_time)
+    ierr = octree_free(oct)
+    call cpu_time(stop_time)
+    write(*,'(a30,f12.6,a)') 'octree free took:',(stop_time-start_time), ' [s]'
+  end block test_octree_free
 
   contains
   subroutine error(msg)
