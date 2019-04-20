@@ -7,19 +7,16 @@ module m_octree
 
   integer,parameter :: dp=8
   real(dp),parameter :: zero=0.0_dp,half=0.5_dp,one=1.0_dp
-
-  real(dp) :: shifts(3,2,4)
+  real(dp),protected :: shifts(3,2,8)
 
   type :: octree_node_t
-    integer :: id
-    real(dp) :: hi(3)
-    real(dp) :: lo(3)
-    type(octree_node_t),pointer :: mother
     type(octree_node_t),pointer :: childs(:) ! if node this is allocated
     integer,allocatable :: ids(:)            ! if leaf this is allocated
   end type octree_node_t
 
   type :: octree_t
+    real(dp) :: hi(3)
+    real(dp) :: lo(3)
     integer :: max_npoints
     real(dp),pointer :: points(:,:)
     type(octree_node_t) :: first
@@ -31,10 +28,8 @@ module m_octree
   type(octree_t) function octree_init(points,max_npoints) result (new)
     integer,intent(in) :: max_npoints
     real(dp), target, intent(in) :: points(:,:)
-    type(octree_node_t) :: mother
     real,parameter :: ieps = 0.1
     integer,allocatable :: ids(:)
-    real(dp) :: hi(3), lo(3)
     integer :: ii, jj, kk, npoints, ioctant
 
     ! determine shifts
@@ -50,24 +45,23 @@ module m_octree
 
     ! determine hi and lo
     do ii=1,3
-      hi(ii) = maxval(points(ii,:))+ieps
-      lo(ii) = minval(points(ii,:))-ieps
+      new%hi(ii) = maxval(points(ii,:))+ieps
+      new%lo(ii) = minval(points(ii,:))-ieps
     end do
-    hi = [1.0,1.0,1.0]
-    lo = [0.0,0.0,0.0]
+    new%hi = [1.0,1.0,1.0]
+    new%lo = [0.0,0.0,0.0]
 
     !first octree contains all the points
     npoints = size(points,2)
     new%points => points
     new%max_npoints = max_npoints
     ids = [(ii,ii=1,npoints)]
-    new%first = octree_node_build(new,mother,lo,hi,npoints,ids)
+    new%first = octree_node_build(new,new%lo,new%hi,npoints,ids)
 
   end function octree_init
 
-  type(octree_node_t) recursive function octree_node_build(octree,mother,lo,hi,nids,ids) result (new)
+  type(octree_node_t) recursive function octree_node_build(octree,lo,hi,nids,ids) result (new)
     type(octree_t),intent(in) :: octree
-    type(octree_node_t),target,intent(in) :: mother
     integer,intent(in) :: nids
     integer,intent(in) :: ids(nids)
     integer :: octants(nids)
@@ -75,12 +69,6 @@ module m_octree
     integer :: new_ids(nids)
     real(dp) :: lo(3), hi(3), new_lo(3), new_hi(3)
 
-    if (allocated(mother%ids)) then
-      write(*,*) 'my mother is a leaf.'
-    end if
-    new%mother => mother
-    new%lo = lo
-    new%hi = hi
     ! check if this is a leaf node
     if (nids<octree%max_npoints) then
       allocate(new%ids(nids))
@@ -103,7 +91,7 @@ module m_octree
       end do
       ! Build this octant
       call get_lo_hi(lo,hi,new_lo,new_hi,ioctant)
-      new%childs(ioctant) = octree_node_build(octree,new,new_lo,new_hi,counter,new_ids)
+      new%childs(ioctant) = octree_node_build(octree,new_lo,new_hi,counter,new_ids)
     end do
 
   end function octree_node_build
@@ -114,20 +102,26 @@ module m_octree
     real(dp),intent(in) :: point(3)
     real(dp),intent(out) :: dist
     type(octree_node_t),pointer :: octn
-    integer :: id, ipoint, ioctant, npoints
+    integer :: id, ipoint, ioctant
+    real(dp) :: hi(3),lo(3),hi_out(3),lo_out(3)
     real(dp) :: trial_dist
 
+    closest_id = 0
     dist = huge(dist)
     octn => octree%first
+    lo = octree%lo
+    hi = octree%hi
     do
       ! get octant of this point
-      ioctant = get_octant_lohi(octn%lo,octn%hi,point)
+      ioctant = get_octant_lohi(lo,hi,point)
       ! point to this node
       octn => octn%childs(ioctant)
-      npoints = size(octn%ids)
+      ! get lo and hi
+      call get_lo_hi(lo,hi,lo_out,hi_out,ioctant)
+      lo = lo_out; hi = hi_out
       if (.not.allocated(octn%ids)) cycle
       ! if leaf node
-      do id=1,npoints
+      do id=1,size(octn%ids)
         ipoint = octn%ids(id)
         trial_dist = dist_points(octree%points(:,ipoint),point)
         if (trial_dist > dist) cycle
@@ -144,20 +138,22 @@ module m_octree
     type(octree_t),target,intent(in) :: octree
     real(dp),intent(in) :: point(3)
     real(dp),intent(inout) :: dist
-    id = octn_find_nearest(octree,octree%first,point,dist)
+    id = octn_find_nearest(octree,octree%first,octree%lo,octree%hi,point,dist)
   end function
 
-  integer recursive function octn_find_nearest(octree,octn,point,min_dist) result(closest_id)
+  integer recursive function octn_find_nearest(octree,octn,lo,hi,point,min_dist) result(closest_id)
     ! find the nearest point by recursion
     type(octree_t),intent(in) :: octree
     type(octree_node_t),intent(in) :: octn
     real(dp),intent(in) :: point(3)
+    real(dp),intent(in) :: lo(3), hi(3)
     real(dp),intent(inout) :: min_dist
+    real(dp) :: new_lo(3), new_hi(3)
     real(dp) :: dist
     integer :: id, ioctant, ipoint, trial_id
     closest_id = 0
     ! compute distance of point to this box (octant)
-    dist = box_dist(octn%lo,octn%hi,point)
+    dist = box_dist(lo,hi,point)
     ! if the distance is bigger than the closest point so far return
     if (dist>min_dist) return
     ! if this node is a leaf compare point by point
@@ -173,7 +169,8 @@ module m_octree
     end if
     ! if this is a node then find the nearest for all the childs
     do ioctant=1,8
-      trial_id = octn_find_nearest(octree,octn%childs(ioctant),point,min_dist)
+      call get_lo_hi(lo,hi,new_lo,new_hi,ioctant)
+      trial_id = octn_find_nearest(octree,octn%childs(ioctant),new_lo,new_hi,point,min_dist)
       if (trial_id==0) cycle
       closest_id = trial_id
     end do
@@ -189,11 +186,12 @@ module m_octree
     integer :: trial_id
     real(dp) :: hi(3), lo(3), de(3), trial_shift(3)
     real(dp) :: trial_dist
+    shift = zero
     ! find nearest in unshifted case
-    id = octn_find_nearest(octree,octree%first,point,dist)
+    id = octn_find_nearest(octree,octree%first,octree%lo,octree%hi,point,dist)
     ! find the shift that brings the point closer to the box
-    lo = octree%first%lo
-    hi = octree%first%hi
+    lo = octree%lo
+    hi = octree%hi
     de = hi-lo
     do ii=-1,1
       do jj=-1,1
@@ -209,7 +207,7 @@ module m_octree
     end do
     ! find the nearest point now
     trial_dist = dist
-    trial_id = octn_find_nearest(octree,octree%first,point+shift,trial_dist)
+    trial_id = octn_find_nearest(octree,octree%first,octree%lo,octree%hi,point+shift,trial_dist)
     if (trial_dist>dist) return
     dist = trial_dist
     id = trial_id
@@ -220,7 +218,7 @@ module m_octree
     integer :: ioctant
     ! if leaf deallocate ids
     if (allocated(octn%ids)) then
-      deallocate(octn%ids)
+      deallocate(octn%ids,stat=ierr)
     else
       do ioctant=1,8
         ierr = octn_free(octn%childs(ioctant))
@@ -335,7 +333,7 @@ program octree_main
     !end do
 
     call cpu_time(start_time)
-    oct = octree_init(points,10)
+    oct = octree_init(points,2**4)
     call cpu_time(stop_time)
     write(*,'(a30,f12.6,a)') 'octree init took:',stop_time-start_time,' [s]'
   end block test_octree_init
