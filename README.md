@@ -2,14 +2,11 @@ Fortran snippets
 =========================================
 
 Some algorithms implemented in Fortran.
-This is not a library but a collection of modules that can be re-used in other codes.
+This is not a library but a collection of modules to be re-used in other codes.
 The algorithms must be:
  1. General enough to be re-used
- 2. No external dependencies (to depend on other modules in snippets is allowed)
+ 2. No external dependencies (to depend on other modules inside snippets is allowed)
  3. Each snippet should include the module and some examples or benchmarks
-
-Snippets
-=========================================
 
 hashtable
 --------------------------
