@@ -134,8 +134,7 @@ module m_octree
       call get_lo_hi(lo,hi,lo_out,hi_out,ioctant)
       lo = lo_out; hi = hi_out
     end do
-    !if (closest_id==0) dist = huge(dist)
-  end function
+  end function octree_find
 
   integer function octree_find_nearest(octree,point,dist) result(nearest_id)
     ! Find the ids of the points whose distance to point is smaller than max_dist
@@ -150,7 +149,7 @@ module m_octree
       return
     end if
     nearest_id = octn_find_nearest(octree,octree%first,octree%lo,octree%hi,point,dist)
-  end function
+  end function octree_find_nearest
 
   integer recursive function octn_find_nearest(octree,octn,lo,hi,point,min_dist) result(closest_id)
     ! find the nearest point by recursion
@@ -185,7 +184,7 @@ module m_octree
       if (trial_id==0) cycle
       closest_id = trial_id
     end do
-  end function
+  end function octn_find_nearest
 
   integer function octree_find_nearest_pbc(octree,point,dist,shift) result(id)
     ! Same as octree find but using periodic boundary conditions
@@ -208,24 +207,25 @@ module m_octree
     ! try unitary shifts
     found=.false.
     do ii=-1,1
-    do jj=-1,1
-    do kk=-1,1
-      if (ii==0.and.jj==0.and.kk==0) cycle
-      trial_shift = first_shift+[ii,jj,kk]
-      ! compute shortest distance
-      trial_dist = dist+tol12
-      trial_id = octn_find_nearest(octree,octree%first,octree%lo,octree%hi,point+trial_shift,trial_dist)
-      ! if smaller than previous distance, store this shift and distance
-      if (trial_dist>dist) cycle
-      found = .true.
-      dist  = trial_dist
-      id    = trial_id
-      shift = trial_shift
-    end do
-    end do
+      do jj=-1,1
+        do kk=-1,1
+          if (ii==0.and.jj==0.and.kk==0) cycle
+          trial_shift = first_shift+[ii,jj,kk]
+          ! compute shortest distance
+          trial_dist = dist+tol12
+          trial_id = octn_find_nearest(octree,octree%first,octree%lo,octree%hi,&
+                                       point+trial_shift,trial_dist)
+          ! if smaller than previous distance, store this shift and distance
+          if (trial_dist>dist) cycle
+          found = .true.
+          dist  = trial_dist
+          id    = trial_id
+          shift = trial_shift
+        end do
+      end do
     end do
     if (.not.found) shift = first_shift
-  end function
+  end function octree_find_nearest_pbc
 
   integer recursive function octn_free(octn) result(ierr)
     type(octree_node_t) :: octn
@@ -238,20 +238,20 @@ module m_octree
         ierr = octn_free(octn%childs(ioctant))
       end do
     end if
-  end function
+  end function octn_free
 
   integer function octree_free(octree) result(ierr)
     ! Free octree datastructure
     type(octree_t),target,intent(in) :: octree
     ierr = octn_free(octree%first)
-  end function
+  end function octree_free
 
   pure real(dp) function dist_points(p1,p2) result(dist)
     real(dp),intent(in) :: p1(3),p2(3)
     dist = pow2(p1(1)-p2(1))+&
            pow2(p1(2)-p2(2))+&
            pow2(p1(3)-p2(3))
-  end function
+  end function dist_points
 
   pure logical function box_contains(lo,hi,po) result(inside)
     ! Find box that contains point
@@ -259,7 +259,7 @@ module m_octree
     inside = (po(1)>lo(1).and.po(1)<hi(1).and.&
               po(2)>lo(2).and.po(2)<hi(2).and.&
               po(3)>lo(3).and.po(3)<hi(3))
-  end function
+  end function box_contains
 
   pure real(dp) function box_dist(lo,hi,po) result(dist)
     ! Find the distance between point and the box
@@ -271,12 +271,12 @@ module m_octree
     if (po(2)>hi(2)) dist = dist + pow2(po(2)-hi(2))
     if (po(3)<lo(3)) dist = dist + pow2(po(3)-lo(3))
     if (po(3)>hi(3)) dist = dist + pow2(po(3)-hi(3))
-  end function
+  end function box_dist
 
   pure real(dp) function pow2(x) result(x2)
     real(dp),intent(in) :: x
     x2 = x*x
-  end function
+  end function pow2
 
   pure integer function get_octant(mi,po) result(ioctant)
     real(dp),intent(in) :: po(3), mi(3)
@@ -285,14 +285,14 @@ module m_octree
     jj = 0; if (po(2)>=mi(2)) jj = 1
     kk = 0; if (po(3)>=mi(3)) kk = 1
     ioctant = ii*4+jj*2+kk+1
-  end function
+  end function get_octant
 
   pure integer function get_octant_lohi(lo,hi,po) result(ioctant)
     real(dp),intent(in) :: lo(3),hi(3),po(3)
     real(dp) :: mi(3)
     mi = lo+half*(hi-lo)
     ioctant = get_octant(mi,po)
-  end function
+  end function get_octant_lohi
 
   pure subroutine get_octants(lo,hi,nids,ids,points,octants)
     ! From a list of points return the corresponding octant
@@ -309,7 +309,7 @@ module m_octree
       ipoint = ids(id)
       octants(id) = get_octant(mi,points(:,ipoint))
     end do
-  end subroutine
+  end subroutine get_octants
 
   pure subroutine get_lo_hi(lo_in,hi_in,lo_out,hi_out,ioctant)
     ! Subdivide a box in an octant
@@ -320,7 +320,7 @@ module m_octree
     de = hi_in-lo_in
     lo_out = lo_in + shifts(:,1,ioctant)*de
     hi_out = lo_in + shifts(:,2,ioctant)*de
-  end subroutine
+  end subroutine get_lo_hi
 
 end module m_octree
 
@@ -330,7 +330,7 @@ program octree_main
   implicit none
 
   type(octree_t) :: oct
-  integer,parameter :: n = 50**3
+  integer,parameter :: n = 100**3
   integer :: id,ipoint
   real(dp) :: points(3,n)
   real(dp) :: start_time,stop_time

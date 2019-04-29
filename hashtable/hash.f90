@@ -15,6 +15,7 @@ module m_hashtable
 
   contains
   type(hashtable_t) function hashtable_init(nbuckets,bucketsize,bucketstep) result(new)
+    ! Create the hashtable structure
     integer,intent(in) :: bucketsize, bucketstep, nbuckets
     integer :: ibucket
 
@@ -26,9 +27,10 @@ module m_hashtable
       allocate(new%buckets(ibucket)%items(2,new%bucketsize))
       new%buckets(ibucket)%nitems = 0
     end do
-  end function
+  end function hashtable_init
 
   subroutine hashtable_add(self, key, val)
+    ! Add a key to the hashtable structure
     type(hashtable_t) :: self
     integer,intent(in) :: key, val
     integer :: ihash, item, nitems
@@ -46,9 +48,10 @@ module m_hashtable
     nitems = nitems + 1
     self%buckets(ihash)%items(:,nitems) = [key,val]
     self%buckets(ihash)%nitems = nitems
-  end subroutine
+  end subroutine hashtable_add
 
   subroutine hashtable_print(self)
+    ! Print the hashtable data
     type(hashtable_t) :: self
     integer :: ibucket,item
     do ibucket=1,self%nbuckets
@@ -56,9 +59,10 @@ module m_hashtable
         write(*,*) ibucket, self%buckets(ibucket)%items(:,item)
       end do
     end do
-  end subroutine
+  end subroutine hashtable_print
 
   subroutine hashtable_get(self,key,val,ierr)
+    ! Get the value of a key in the hashtable
     type(hashtable_t) :: self
     integer,intent(in)  :: key
     integer,intent(out) :: val,ierr
@@ -71,7 +75,7 @@ module m_hashtable
       return
     end do
     ierr = 1
-  end subroutine
+  end subroutine hashtable_get
 
   subroutine hashtable_free(self)
     type(hashtable_t) ::  self
@@ -81,7 +85,7 @@ module m_hashtable
     end do
     deallocate(self%buckets)
   end subroutine hashtable_free
-end module
+end module m_hashtable
 
 program hash_main
   use m_hashtable
