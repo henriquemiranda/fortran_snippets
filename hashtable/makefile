@@ -1,5 +1,5 @@
 FC := gfortran
-FCFLAGS := -g
+FCFLAGS := -g -fcheck=bounds
 
 all: hash
 
