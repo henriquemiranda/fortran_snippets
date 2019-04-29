@@ -45,7 +45,6 @@ module m_hashtable
       self%buckets(ihash)%items(2,item) = val
       return
     end do
-    ! Add the element to the bucket
     ! Check if the buckets are full
     if (size(self%buckets(ihash)%items,2)==nitems) then
       allocate(new_items(2,nitems+self%bucketstep))
@@ -53,6 +52,7 @@ module m_hashtable
       new_items(:,nitems+1:) = 0
       call move_alloc(new_items,self%buckets(ihash)%items)
     end if
+    ! Add the element to the bucket
     nitems = nitems + 1
     self%buckets(ihash)%items(:,nitems) = [key,val]
     self%buckets(ihash)%nitems = nitems
@@ -89,8 +89,14 @@ module m_hashtable
     ! Free up memory in all the buckets
     ! this should be done only after all the add operations are finished
     type(hashtable_t) ::  self
-    integer :: ibucket
+    integer :: ibucket,nitems
+    integer,allocatable :: new_items(:,:)
     do ibucket=1,self%nbuckets
+      ! get size of buckets and free unecessary memory
+      nitems = self%buckets(ibucket)%nitems
+      allocate(new_items(2,nitems))
+      new_items = self%buckets(ibucket)%items(:,:nitems)
+      call move_alloc(new_items,self%buckets(ibucket)%items)
     end do
   end subroutine hashtable_cleanup
 
@@ -122,6 +128,7 @@ program hash_main
   call hashtable_add(hash,30,1236)
   call hashtable_add(hash,1000,123)
   call hashtable_add(hash,34,143)
+  call hashtable_cleanup(hash)
   call hashtable_print(hash)
   call hashtable_get(hash,30,val,ierr)
   write(*,*) val, ierr
