@@ -290,7 +290,7 @@ module m_octree
   pure integer function get_octant_lohi(lo,hi,po) result(ioctant)
     real(dp),intent(in) :: lo(3),hi(3),po(3)
     real(dp) :: mi(3)
-    mi = lo+half*(hi-lo)
+    mi = half*(hi+lo)
     ioctant = get_octant(mi,po)
   end function get_octant_lohi
 
@@ -304,7 +304,7 @@ module m_octree
     real(dp) :: mi(3)
     integer :: id, ipoint
     ! calculate midpoint
-    mi = lo+half*(hi-lo)
+    mi = half*(hi+lo)
     do id=1,nids
       ipoint = ids(id)
       octants(id) = get_octant(mi,points(:,ipoint))
