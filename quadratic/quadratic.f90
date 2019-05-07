@@ -207,14 +207,14 @@ module m_tetralite
   pure real(dp) function f(n,m,w,eig)
     integer,intent(in) :: n,m
     real(dp),intent(in) :: w,eig(4)
-    f = ((w - eig(m+1)) / (eig(n+1) - eig(m+1)))
+    f = ((w - eig(m)) / (eig(n) - eig(m)))
   end function
 
   pure real(dp) function g1(w,eig)
     real(dp),intent(in) :: w,eig(4)
     g1 = (3.0_dp *&
-          f(1, 0, w, eig) *&
-          f(2, 0, w, eig) /&
+          f(2, 1, w, eig) *&
+          f(3, 1, w, eig) /&
           (eig(4) - eig(1)))
   end function
 
@@ -222,110 +222,110 @@ module m_tetralite
     real(dp),intent(in) :: w,eig(4)
     g2 = (3.0_dp /&
           (eig(4) - eig(1)) *&
-          (f(1, 2, w, eig) *&
-           f(2, 0, w, eig) +&
-           f(2, 1, w, eig) *&
-           f(1, 3, w, eig)))
+          (f(2, 3, w, eig) *&
+           f(3, 1, w, eig) +&
+           f(3, 2, w, eig) *&
+           f(2, 4, w, eig)))
   end function
 
   pure real(dp) function g3(w,eig)
     real(dp),intent(in) :: w,eig(4)
     g3 = (3.0_dp *&
-            f(1, 3, w, eig) *&
-            f(2, 3, w, eig) /&
+            f(2, 4, w, eig) *&
+            f(3, 4, w, eig) /&
             (eig(4) - eig(1)))
   end function
 
   pure real(dp) function I10(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I10 = (f(0, 1, w, eig) +&
-           f(0, 2, w, eig) +&
-           f(0, 3, w, eig)) / 3.0_dp
+    I10 = (f(1, 2, w, eig) +&
+           f(1, 3, w, eig) +&
+           f(1, 4, w, eig))
   end function
 
   pure real(dp) function I11(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I11 = f(1, 0, w, eig) / 3.0_dp
+    I11 = f(2, 1, w, eig)
   end function
 
   pure real(dp) function I12(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I12 = f(2, 0, w, eig) / 3.0_dp
+    I12 = f(3, 1, w, eig)
   end function
 
   pure real(dp) function I13(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I13 = f(3, 0, w, eig) / 3.0_dp
+    I13 = f(4, 1, w, eig)
   end function
 
   pure real(dp) function I20(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I20 = (f(0, 3, w, eig) +&
-           f(0, 2, w, eig) *&
-           f(2, 0, w, eig) *&
-           f(1, 2, w, eig) /&
-          (f(1, 2, w, eig) *&
-           f(2, 0, w, eig) +&
-           f(2, 1, w, eig) *&
-           f(1, 3, w, eig))) / 3.0_dp
+    I20 = (f(1, 4, w, eig) +&
+           f(1, 3, w, eig) *&
+           f(3, 1, w, eig) *&
+           f(2, 3, w, eig) /&
+          (f(2, 3, w, eig) *&
+           f(3, 1, w, eig) +&
+           f(3, 2, w, eig) *&
+           f(2, 4, w, eig)))
   end function
 
   pure real(dp) function I21(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I21 = (f(1, 2, w, eig) +&
-           f(1, 3, w, eig) *&
-           f(1, 3, w, eig) *&
-           f(2, 1, w, eig) /&
-          (f(1, 2, w, eig) *&
-           f(2, 0, w, eig) +&
-           f(2, 1, w, eig) *&
-           f(1, 3, w, eig))) / 3.0_dp
+    I21 = (f(2, 3, w, eig) +&
+           f(2, 4, w, eig) *&
+           f(2, 4, w, eig) *&
+           f(3, 2, w, eig) /&
+          (f(2, 3, w, eig) *&
+           f(3, 1, w, eig) +&
+           f(3, 2, w, eig) *&
+           f(2, 4, w, eig)))
   end function
 
   pure real(dp) function I22(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I22 = (f(2, 1, w, eig) +&
-           f(2, 0, w, eig) *&
-           f(2, 0, w, eig) *&
-           f(1, 2, w, eig) /&
-          (f(1, 2, w, eig) *&
-           f(2, 0, w, eig) +&
-           f(2, 1, w, eig) *&
-           f(1, 3, w, eig))) / 3.0_dp
+    I22 = (f(3, 2, w, eig) +&
+           f(3, 1, w, eig) *&
+           f(3, 1, w, eig) *&
+           f(2, 3, w, eig) /&
+          (f(2, 3, w, eig) *&
+           f(3, 1, w, eig) +&
+           f(3, 2, w, eig) *&
+           f(2, 4, w, eig)))
   end function
 
   pure real(dp) function I23(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I23 = (f(3, 0, w, eig) +&
-           f(3, 1, w, eig) *&
-           f(1, 3, w, eig) *&
-           f(2, 1, w, eig) /&
-          (f(1, 2, w, eig) *&
-           f(2, 0, w, eig) +&
-           f(2, 1, w, eig) *&
-           f(1, 3, w, eig))) / 3.0_dp
+    I23 = (f(4, 1, w, eig) +&
+           f(4, 2, w, eig) *&
+           f(2, 4, w, eig) *&
+           f(3, 2, w, eig) /&
+          (f(2, 3, w, eig) *&
+           f(3, 1, w, eig) +&
+           f(3, 2, w, eig) *&
+           f(2, 4, w, eig)))
   end function
 
   pure real(dp) function I30(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I30 = f(0, 3, w, eig) / 3.0_dp
+    I30 = f(1, 4, w, eig)
   end function
 
   pure real(dp) function I31(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I31 = f(1, 3, w, eig) / 3.0_dp
+    I31 = f(2, 4, w, eig)
   end function
 
   pure real(dp) function I32(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I32 = f(2, 3, w, eig) / 3.0_dp
+    I32 = f(3, 4, w, eig)
   end function
 
   pure real(dp) function I33(w,eig)
     real(dp),intent(in) :: w,eig(4)
-    I33 = (f(3, 0, w, eig) +&
-           f(3, 1, w, eig) +&
-           f(3, 2, w, eig)) / 3.0_dp
+    I33 = (f(4, 1, w, eig) +&
+           f(4, 2, w, eig) +&
+           f(4, 3, w, eig))
   end function
 
   subroutine tetralite_delta(eig,wvals,nw,dweight)
@@ -353,7 +353,7 @@ module m_tetralite
 
       ! e1 < w < e2
       if (w < eig(2)) then
-        g = g1(w,eig)
+        g = g1(w,eig)/3.0_dp
         dweight(1,iw) = g*I10(w,eig)
         dweight(2,iw) = g*I11(w,eig)
         dweight(3,iw) = g*I12(w,eig)
@@ -363,7 +363,7 @@ module m_tetralite
 
       ! e2 < eps < e3
       if (w < eig(3)) then
-        g = g2(w,eig)
+        g = g2(w,eig)/3.0_dp
         dweight(1,iw) = g*I20(w,eig)
         dweight(2,iw) = g*I21(w,eig)
         dweight(3,iw) = g*I22(w,eig)
@@ -373,7 +373,7 @@ module m_tetralite
 
       ! e3 < eps < e4
       if (w < eig(4)) then
-        g = g3(w,eig)
+        g = g3(w,eig)/3.0_dp
         dweight(1,iw) = g*I30(w,eig)
         dweight(2,iw) = g*I31(w,eig)
         dweight(3,iw) = g*I32(w,eig)
@@ -543,51 +543,48 @@ module m_dividetetra
     end do
   end subroutine
 
-  recursive subroutine hybridtetra(kpts,parm_eig,parm_mat,wvals,nw,integral,n,depth)
+  recursive subroutine hybridtetra(kpt4,eig4,mat4,parm_eig,parm_mat,wvals,nw,integral,n,depth)
     ! subdivide tetrahedra n times and evaluate contibutions
     ! number of frequencies, desired depth
     integer,intent(in) :: nw,n
     ! quadratic coeficients for interpolation
     real(dp),intent(in) :: parm_eig(10),parm_mat(10)
-    real(dp),intent(in) :: kpts(3,4)
+    real(dp),intent(in) :: kpt4(3,4),eig4(4),mat4(4)
     real(dp),intent(in) :: wvals(nw)
     real(dp),intent(inout) :: integral(nw)
     integer,optional,intent(in) :: depth
-    integer  :: itetra,isummit,idx10,idepth
+    integer  :: itetra,idepth
     integer  :: ind(4)
-    real(dp) :: kpts_new(3,4), mid10(3,10)
-    real(dp) :: eig4(4),mat4(4)
+    real(dp) :: eig(4)
+    real(dp) :: mid10(3,10),eig10(10),mat10(10)
     real(dp) :: weights(4,nw)
 
     ! how deep are we?
     idepth = 1; if (present(depth)) idepth = depth
     if (idepth==1) integral = 0.0_dp
-    mid10(:,:4) = kpts
 
-    ! if in the desired depth sum the contribution
+    ! if in the desired depth sum the contribution of this tetrahedron
     if (idepth==n) then
-      !eig10(:) = get_values(mid10,10,parm_eig)
-      !mat10(:) = get_values(mid10,10,parm_mat)
-      !call get_8tetra(eig10,mat10,wvals,nw,integral_tmp)
-      !integral = integral + integral_tmp/8.0_dp**idepth
-      eig4(:) = get_values(mid10,4,parm_eig)
-      mat4(:) = get_values(mid10,4,parm_mat)
-      call sort_4tetra(eig4,ind)
-      call tetralite_delta(eig4,wvals,nw,weights)
+      eig = eig4
+      call sort_4tetra(eig,ind)
+      call tetralite_delta(eig,wvals,nw,weights)
       integral = integral + sum(weights,1)/8.0_dp**(idepth-1)
     ! otherwise go deeper for each tetrahedron
     else
+      ! copy 4 vertices data
+      mid10(:,:4) = kpt4
+      eig10(:4) = eig4
+      mat10(:4) = mat4
       ! get the additional 6 middle points
-      mid10(:,5:) = get_6midkpts(kpts)
-      ! Loop ovre the 8 sub ttrahedra
+      mid10(:,5:) = get_6midkpts(kpt4)
+      eig10(5:) = get_values(mid10(:,5:),6,parm_eig)
+      mat10(5:) = get_values(mid10(:,5:),6,parm_mat)
+      ! Loop over the 8 sub tetrahedra
       do itetra=1,8
         ! get coordinates of k-points of this tetrahedron
-        do isummit=1,4
-          idx10 = tetra8(isummit,itetra)
-          kpts_new(:,isummit) = mid10(:,idx10)
-        end do
+        ind(:) = tetra8(:,itetra)
         ! subdivide and evaluate again
-        call hybridtetra(kpts_new,parm_eig,parm_mat,wvals,nw,integral,n,idepth+1)
+        call hybridtetra(mid10(:,ind),eig10(ind),mat10(ind),parm_eig,parm_mat,wvals,nw,integral,n,idepth+1)
       end do
     end if
   end subroutine
@@ -640,6 +637,7 @@ program fit
   tetradivide_stuff : block
     integer :: nw
     real(dp) :: mid6(3,6)
+    real(dp) :: eig4(4), mat4(4)
     real(dp) :: eig10(10), mat10(10)
     real(dp),allocatable :: wvals(:)
     real(dp),allocatable :: integral(:)
@@ -664,7 +662,9 @@ program fit
     call get_8tetra(eig10,mat10,wvals,nw,integral)
 
     ! now test the hybrid tetrahedron routine
-    call  hybridtetra(kpts(:,:4),parm_eig,parm_mat,wvals,nw,integral,2)
+    eig4 = get_values(kpts,4,parm_eig)
+    mat4 = get_values(kpts,4,parm_mat)
+    call  hybridtetra(kpts(:,:4),eig4,mat4,parm_eig,parm_mat,wvals,nw,integral,1)
     deallocate(wvals)
     deallocate(integral)
 
@@ -674,22 +674,24 @@ program fit
     integer :: ix,iy,iz
     integer :: ik,nk,nw
     integer :: itetra,isummit,idepth
+    integer :: band
     integer :: divs(3),ind(4),gp(3)
     character(len=100) :: fname
     real(dp) :: emin,emax,step
-    real(dp) :: kpt(3),kpt4(3,4),eig4(4),vel4(3,4)
+    real(dp) :: kpt(3),kpt4(3,4),eig4(4),mat4(4),vel4(3,4)
     real(dp) :: parm_eig(10)
     real(dp),allocatable :: eig(:),vel(:,:)
     real(dp),allocatable :: wvals(:)
     real(dp),allocatable :: dweight(:,:)
     real(dp),allocatable :: integral(:), integral_tmp(:)
 
+    band = 1
     divs = [2,2,2]
     divs = [4,4,4]
     divs = [6,6,6]
     divs = [8,8,8]
-    divs = [10,10,10]
-    !divs = [20,20,20]
+    !divs = [10,10,10]
+    divs = [20,20,20]
     !divs = [30,30,30]
     !divs = [40,40,40]
     nw = 1000
@@ -715,8 +717,12 @@ program fit
         do iz=1,divs(3)
           kpt = grid_kpoint(divs,[ix,iy,iz])
           ik = grid(divs,[ix,iy,iz])
-          call tb_band(kpt,eig(ik),vel(:,ik))
-          !call parabola_band(kpt,eig(ik),vel(:,ik))
+          select case(band)
+          case(1)
+           call tb_band(kpt,eig(ik),vel(:,ik))
+          case(2)
+           call parabola_band(kpt,eig(ik),vel(:,ik))
+          end select
         end do
       end do
     end do
@@ -757,7 +763,8 @@ program fit
 
     ! Compute DOS with quadratic tetrahedron
     integral = zero
-    idepth = 1
+    idepth = 3
+    mat4 = one
     ! loop over points
     do ix=1,divs(1)
       do iy=1,divs(2)
@@ -780,7 +787,7 @@ program fit
             ! fit energies
             call fit4(kpt4,eig4,vel4,parm_eig,info)
             ! get hybrid weights
-            call hybridtetra(kpt4,parm_eig,parm_mat,wvals,nw,integral_tmp,idepth)
+            call hybridtetra(kpt4,eig4,mat4,parm_eig,parm_mat,wvals,nw,integral_tmp,idepth)
             integral = integral + integral_tmp/nk
           end do
         end do
@@ -799,7 +806,6 @@ program fit
   end block tetralite_stuff
 
   contains
-
   pure subroutine parabola_band(kpt,eig,vel)
     ! Simple parabola
     real(dp),intent(in) :: kpt(3)
@@ -814,7 +820,7 @@ program fit
     vel(3) = 2*two_pi*z
   end subroutine
 
-  subroutine tb_band(kpt,eig,vel)
+  pure subroutine tb_band(kpt,eig,vel)
     ! TB band
     real(dp),intent(in) :: kpt(3)
     real(dp),intent(out) :: eig, vel(3)
