@@ -8,9 +8,13 @@
 !      axy*x*y + axz*x*z + ayz*y*z +
 !      ax2*x*x + ayy*y*y + azz*z*z
 !
+! Use this as an interpolating function inside the tetrahedron
+! and apply the hybrid tetrahedron method
+!
 module m_defs
  integer, parameter :: dp=8
  real(dp), parameter :: zero = 0.0_dp, half = 0.5_dp, one = 1.0_dp, two=2.0_dp
+ real(dp), parameter :: tol8  = 0.00000001_dp
  real(dp), parameter :: tol14 = 0.000000000000001_dp
  real(dp), parameter :: pi=3.141592653589793238462643383279502884197_dp
  real(dp), parameter :: two_pi = two*pi
@@ -19,9 +23,13 @@ end module m_defs
 module m_quadratic
  use m_defs
  implicit none
+ integer,parameter  :: lwork=200
+ real(dp),parameter :: rcond=tol8
+ real(dp) :: work(lwork)
 
  contains
  real(dp) function f(kpt,parm)
+   ! Compute the quadratic function on kpt
    real(dp),intent(in) :: kpt(3)
    real(dp),intent(in) :: parm(10)
    real(dp) :: x,y,z
@@ -33,7 +41,7 @@ module m_quadratic
  end function f
 
  function df(kpt,parm)
-   ! Compute the derivative of the quadratic function with respect to x,y,z
+   ! Compute the derivative of the quadratic function with respect to kx,ky,kz
    real(dp),intent(in) :: kpt(3)
    real(dp),intent(in) :: parm(10)
    real(dp) :: df(3)
@@ -50,6 +58,34 @@ module m_quadratic
            2.0_dp*parm(10)*z
  end function df
 
+ subroutine fit4(kpts,eigs,parm,info)
+  ! Fit a linear function using the values of the function evaluated in 4 points
+  ! This is done solving a linear system of equations of the form Ax=b
+  real(dp),intent(in)  :: kpts(3,10)
+  real(dp),intent(in)  :: eigs(4)
+  real(dp),intent(out) :: parm(10)
+  integer,intent(out)  :: info
+
+  integer :: ii,irank
+  real(dp) :: x,y,z
+  real(dp) :: sgval(4)
+  real(dp) :: a(4,4), b(4)
+
+  ! Fill in the a matrix A
+  do ii=1,4
+    x=kpts(1,ii);y=kpts(2,ii);z=kpts(3,ii)
+    a(ii,:) = [1.0_dp,x,y,z]
+  end do
+
+  ! Fill in the vector b
+  b = eigs
+
+  !solve a system of linear equations
+  call dgelss(4,4,1,a,4,b,4,sgval,rcond,irank,work,lwork,info)
+  parm(:4) = b(:)
+  parm(5:) = zero
+ end subroutine fit4
+
  subroutine fit10(kpts,eigs,parm,info)
   ! Fit a quadratic function using the values fo the function evaluated in 10 points
   ! This is done solving a linear system of equations of the form Ax=b
@@ -60,7 +96,7 @@ module m_quadratic
 
   integer :: ii,irank
   real(dp) :: x,y,z
-  real(dp) :: work(100),sgval(10)
+  real(dp) :: sgval(10)
   real(dp) :: a(10,10), b(10)
 
   ! Fill in the a matrix A
@@ -73,11 +109,11 @@ module m_quadratic
   b = eigs
 
   !solve a system of linear equations
-  call dgelss(10,10,1,a,10,b,10,sgval,-1.0_dp,irank,work,200,info)
+  call dgelss(10,10,1,a,10,b,10,sgval,rcond,irank,work,lwork,info)
   parm = b(:10)
  end subroutine fit10
 
- subroutine fit4(kpts,eigs,vels,parm,info)
+ subroutine fit4d(kpts,eigs,vels,parm,info)
   ! Fit a quadratic function using the values and derivatives of the function evaluated in 4 points
   ! This is done solving a linear system of equations of the form Ax=b
   real(dp),intent(in) :: kpts(3,4)
@@ -89,7 +125,7 @@ module m_quadratic
   integer :: ii
   integer :: irank
   real(dp) :: x,y,z
-  real(dp) :: work(100),sgval(10)
+  real(dp) :: sgval(10)
   real(dp) :: a(16,10),b(16)
 
   ! Fill in the a matrix for eigenvalues
@@ -124,9 +160,9 @@ module m_quadratic
   b(14:16) = vels(:,4)
 
   !solve a system of linear equations
-  call dgelss(16,10,1,a,16,b,16,sgval,-1.0_dp,irank,work,200,info)
+  call dgelss(16,10,1,a,16,b,16,sgval,rcond,irank,work,lwork,info)
   parm = b(:10)
- end subroutine fit4
+ end subroutine fit4d
 
 end module m_quadratic
 
@@ -523,12 +559,6 @@ module m_dividetetra
     real(dp) :: eig4(4)
     real(dp) :: weights(4,nw)
 
-    !eig4 = eig10(:4)
-    !call sort_4tetra(eig4,ind)
-    !call tetralite_delta(eig4,wvals,nw,weights)
-    !integral = sum(weights,1)*8
-    !return
-
     ! Evaluate and add the contribution of 8 tetrahedra
     integral = 0.0_dp
     do itetra=1,8
@@ -573,12 +603,12 @@ module m_dividetetra
     else
       ! copy 4 vertices data
       mid10(:,:4) = kpt4
-      eig10(:4) = eig4
-      mat10(:4) = mat4
+      eig10(:4)   = eig4
+      mat10(:4)   = mat4
       ! get the additional 6 middle points
       mid10(:,5:) = get_6midkpts(kpt4)
-      eig10(5:) = get_values(mid10(:,5:),6,parm_eig)
-      mat10(5:) = get_values(mid10(:,5:),6,parm_mat)
+      eig10(5:)   = get_values(mid10(:,5:),6,parm_eig)
+      mat10(5:)   = get_values(mid10(:,5:),6,parm_mat)
       ! Loop over the 8 sub tetrahedra
       do itetra=1,8
         ! get coordinates of k-points of this tetrahedron
@@ -628,7 +658,7 @@ program fit
     write(*,'(10f8.3)') (parm_eig(ii),ii=1,10)
 
     ! Fit using 4 points and derivatives
-    call fit4(kpts,eigs,vels,parm_eig,info)
+    call fit4d(kpts,eigs,vels,parm_eig,info)
     write(*,'(10f8.3)') (parm_eig(ii),ii=1,10)
   end block fit_stuff
 
@@ -690,11 +720,12 @@ program fit
     divs = [4,4,4]
     divs = [6,6,6]
     divs = [8,8,8]
-    !divs = [10,10,10]
+    divs = [10,10,10]
     divs = [20,20,20]
     !divs = [30,30,30]
     !divs = [40,40,40]
-    nw = 1000
+    !divs = [50,50,50]
+    nw = 500
 
     nk = divs(1)*divs(2)*divs(3)
     allocate(eig(nk))
@@ -763,7 +794,7 @@ program fit
 
     ! Compute DOS with quadratic tetrahedron
     integral = zero
-    idepth = 3
+    idepth = 1
     mat4 = one
     ! loop over points
     do ix=1,divs(1)
@@ -785,7 +816,7 @@ program fit
               !call parabola_band(kpt4(:,isummit),eig4(isummit),vel4(:,isummit))
             end do
             ! fit energies
-            call fit4(kpt4,eig4,vel4,parm_eig,info)
+            call fit4d(kpt4,eig4,vel4,parm_eig,info)
             ! get hybrid weights
             call hybridtetra(kpt4,eig4,mat4,parm_eig,parm_mat,wvals,nw,integral_tmp,idepth)
             integral = integral + integral_tmp/nk
