@@ -29,6 +29,13 @@ module m_hashtable
     end do
   end function hashtable_init
 
+  pure function compute_hash(self,key) result(ihash)
+    type(hashtable_t),intent(in) :: self
+    integer,intent(in) :: key
+    integer :: ihash
+    ihash = mod(key-1,self%nbuckets)+1
+  end function compute_hash
+
   subroutine hashtable_add(self, key, val)
     ! Add a key to the hashtable structure
     type(hashtable_t) :: self
@@ -85,6 +92,21 @@ module m_hashtable
     ierr = 1
   end subroutine hashtable_get
 
+  subroutine hashtable_keys(self,keys)
+    ! Get an array with all the keys in hashtable
+    type(hashtable_t) ::  self
+    integer :: item,ibucket,idx
+    integer,allocatable :: keys(:)
+    allocate(keys(sum(self%buckets(:)%nitems)))
+    idx = 0
+    do ibucket=1,self%nbuckets
+      do item=1,self%buckets(ibucket)%nitems
+        idx = idx + 1
+        keys(idx) = self%buckets(ibucket)%items(1,item)
+      end do
+    end do
+  end subroutine hashtable_keys
+
   subroutine hashtable_cleanup(self)
     ! Free up memory in all the buckets
     ! this should be done only after all the add operations are finished
@@ -99,6 +121,17 @@ module m_hashtable
       call move_alloc(new_items,self%buckets(ibucket)%items)
     end do
   end subroutine hashtable_cleanup
+
+  integer function hashtable_size(self) result(bsize)
+    type(hashtable_t) ::  self
+    integer :: ibucket
+    ! Return the size of the hashtable in bytes
+    bsize = storage_size(self%buckets)*self%nbuckets
+    do ibucket=1,self%nbuckets
+      bsize = bsize + storage_size(self%buckets(ibucket)%items)*size(self%buckets(ibucket)%items,2)*2
+    end do
+    bsize = bsize/8
+  end function hashtable_size
 
   subroutine hashtable_free(self)
     type(hashtable_t) ::  self
