@@ -1,3 +1,7 @@
+!
+! Author: Henrique Miranda
+! Build an octree to find nearest negihbour points
+!
 module m_octree
 
   implicit none

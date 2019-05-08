@@ -24,3 +24,7 @@ points to each of them.
 It is possible then to query for the nerest neighbour very efficientely.
 This structure can be used for example to map 3D points of one list to another.
 
+quadratic
+--------------------------
+Routines to fit a quandratic function in 3D, interpolate it and integrate
+using an hybrid tetrahedron method.

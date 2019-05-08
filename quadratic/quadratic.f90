@@ -1,5 +1,6 @@
 !
 ! 20/03/2019
+! Author: Henrique Miranda
 ! Create a linear system of equations to fit a quadratic function in 3D
 ! the function has the general form:
 !
@@ -9,7 +10,10 @@
 !      ax2*x*x + ayy*y*y + azz*z*z
 !
 ! Use this as an interpolating function inside the tetrahedron
-! and apply the hybrid tetrahedron method
+! and apply the hybrid tetrahedron method described in
+!
+! A.H. MacDonald, S.H. Vosko, and P.T. Coleridge,
+! Journal of Physics C: Solid State Physics 12, 2991 (1979).
 !
 module m_defs
  integer, parameter :: dp=8
