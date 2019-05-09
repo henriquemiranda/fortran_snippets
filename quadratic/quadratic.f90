@@ -7,7 +7,7 @@
 !  f = a +
 !      ax*x + ay*y + az*z +
 !      axy*x*y + axz*x*z + ayz*y*z +
-!      ax2*x*x + ayy*y*y + azz*z*z
+!      ax2*x*x + ayy*y*y + azz*z*z     (1)
 !
 ! Use this as an interpolating function inside the tetrahedron
 ! and apply the hybrid tetrahedron method described in
@@ -116,6 +116,65 @@ module m_quadratic
   call dgelss(10,10,1,a,10,b,10,sgval,rcond,irank,work,lwork,info)
   parm = b
  end subroutine fit10
+
+ subroutine fit10_affine(eigs,parm)
+  ! Fit a quadratic function using the values fo the function evaluated in 10 points
+  ! This is done by inverting A of a linear system of equations of the form Ax=b
+  ! A affine transformation of coordinates (x,y,z)->(a,b,c) is used following
+  ! CMES: Computer Modeling in Engineering & Sciences, Vol. 94, No. 4, pp. 279-300, 2013
+  ! (x1,y1,z1) -> (0,0,0)
+  ! (x2,y2,z2) -> (1,0,0)
+  ! (x3,y3,z3) -> (0,1,0)
+  ! (x4,y4,z4) -> (0,0,1)
+  !
+  ! In this coordinates, the 10 vertices of the tetrahedra are:
+  ! (  0,   0,   0)
+  ! (  1,   0,   0)
+  ! (  0,   1,   0)
+  ! (  0,   0,   1)
+  ! (1/2,   0,   0)
+  ! (  0, 1/2,   0)
+  ! (  0,   0  1/2)
+  ! (1/2, 1/2,   0)
+  ! (  0, 1/2, 1/2)
+  ! (1/2,   0, 1/2)
+  !
+  ! We want to describe a quadratic function (1)
+  ! whose coefficients sym are:
+  ! (a,  ax,  ay,  az, axy, axz, ayz, ax2, ayy, azz)
+  !
+  ! A parm = eigs
+  ! The matrix A is d f /d sym
+  ! [1,   0,   0,   0,   0,   0,   0,   0,   0,   0]
+  ! [1,   1,   0,   0,   0,   0,   0,   1,   0,   0]
+  ! [1,   0,   1,   0,   0,   0,   0,   0,   1,   0]
+  ! [1,   0,   0,   1,   0,   0,   0,   0,   0,   1]
+  ! [1, 1/2,   0,   0,   0,   0,   0, 1/4,   0,   0]
+  ! [1,   0, 1/2,   0,   0,   0,   0,   0, 1/4,   0]
+  ! [1,   0,   0, 1/2,   0,   0,   0,   0,   0, 1/4]
+  ! [1, 1/2, 1/2,   0, 1/4,   0,   0, 1/4, 1/4,   0]
+  ! [1,   0, 1/2, 1/2,   0,   0, 1/4,   0, 1/4, 1/4]
+  ! [1, 1/2,   0, 1/2,   0, 1/4,   0, 1/4,   0, 1/4]
+  !
+  real(dp),intent(in) :: eigs(10)
+  real(dp),intent(out) :: parm(10)
+
+  real(dp) :: inva(10,10)
+
+  ! Fill in the inverse of the A matrix
+  inva(:,1)  = [1,-3,-3,-3, 4, 4, 4, 2, 2, 2]
+  inva(:,2)  = [0,-1, 0, 0, 0, 0, 0, 2, 0, 0]
+  inva(:,3)  = [0, 0,-1, 0, 0, 0, 0, 0, 2, 0]
+  inva(:,4)  = [0, 0, 0,-1, 0, 0, 0, 0, 0, 2]
+  inva(:,5)  = [0, 4, 0, 0,-4,-4, 0,-4, 0, 0]
+  inva(:,6)  = [0, 0, 4, 0,-4, 0,-4, 0,-4, 0]
+  inva(:,7)  = [0, 0, 0, 4, 0,-4,-4, 0, 0,-4]
+  inva(:,8)  = [0, 0, 0, 0, 4, 0, 0, 0, 0, 0]
+  inva(:,9)  = [0, 0, 0, 0, 0, 0, 4, 0, 0, 0]
+  inva(:,10) = [0, 0, 0, 0, 0, 4, 0, 0, 0, 0]
+
+  call dgemv('N',10,10,one,inva,10,eigs,1,zero,parm,1)
+ end subroutine fit10_affine
 
  subroutine fit4d(kpts,eigs,vels,parm,info)
   ! Fit a quadratic function using the values and derivatives of the function evaluated in 4 points
@@ -728,6 +787,7 @@ program fit
     integer :: divs(3),ind(4),gp(3)
     character(len=100) :: fname
     real(dp) :: emin,emax,step
+    real(dp) :: start_time, stop_time
     real(dp) :: kpt(3),kpt4(3,4),eig4(4),mat4(4),vel4(3,4)
     real(dp) :: kpt10(3,10),eig10(10),mat10(10)
     real(dp) :: parm_eig(10)
@@ -736,7 +796,12 @@ program fit
     real(dp),allocatable :: dweight(:,:)
     real(dp),allocatable :: integral(:), integral_tmp(:)
 
+    ! choose TB band or parabola
     band = 1
+
+    ! choose how many times to apply recursion
+    idepth = 3
+
     divs = [2,2,2]
     divs = [4,4,4]
     divs = [6,6,6]
@@ -745,7 +810,7 @@ program fit
     !divs = [20,20,20]
     !divs = [30,30,30]
     !divs = [40,40,40]
-    !divs = [50,50,50]
+    divs = [50,50,50]
     nw = 500
 
     nk = divs(1)*divs(2)*divs(3)
@@ -788,6 +853,7 @@ program fit
     wvals = [(emin+ii*step,ii=0,nw-1)]
 
     ! Compute DOS with linear tetrahedron
+    call cpu_time(start_time)
     integral = zero
     do ix=1,divs(1)
       do iy=1,divs(2)
@@ -812,12 +878,14 @@ program fit
         end do
       end do
     end do
+    call cpu_time(stop_time)
+    write(*,'(a30,f12.6,a)') 'linear dos took:',(stop_time-start_time), ' [s]'
     write(fname,'(a,i0,a)') 'dosl',divs(1),'.dat'
     call write_file(fname,nw,wvals,integral)
 
     ! Compute DOS with quadratic tetrahedron (fitting only scalars)
+    call cpu_time(start_time)
     integral = zero
-    idepth = 3
     ! loop over points
     do ix=1,divs(1),2
       do iy=1,divs(2),2
@@ -827,7 +895,7 @@ program fit
             ! each tetrahdra has 10 points
             do isummit=1,10
               gp = [ix,iy,iz]+tetra_6qshifts(:,isummit,itetra)
-              ! Get eigenvalues and velocities
+              ! Get eigenvalues
               ik = grid(divs,gp)
               eig10(isummit)   = eig(ik)
               kpt10(:,isummit) = grid_kpoint(divs,gp)
@@ -849,13 +917,59 @@ program fit
         end do
       end do
     end do
+    call cpu_time(stop_time)
+    write(*,'(a30,f12.6,a)') 'quadratic scalar dos took:',(stop_time-start_time), ' [s]'
     write(fname,'(a,i0,a,i0,a)') 'dosqs',divs(1),'d',idepth,'.dat'
     call write_file(fname,nw,wvals,integral)
 
-    ! Compute DOS with quadratic tetrahedron (fitting the velocities)
+    ! Compute DOS with quadratic tetrahedron (fitting only scalars and using affine transformation)
+    call cpu_time(start_time)
     integral = zero
-    idepth = 1
-    mat4 = one
+    ! loop over points
+    kpt10(:,1)  = [0.0_dp,0.0_dp,0.0_dp]
+    kpt10(:,2)  = [1.0_dp,0.0_dp,0.0_dp]
+    kpt10(:,3)  = [0.0_dp,1.0_dp,0.0_dp]
+    kpt10(:,4)  = [0.0_dp,0.0_dp,1.0_dp]
+    kpt10(:,5:) = get_6midkpts(kpt10(:,:4))
+    do ix=1,divs(1),2
+      do iy=1,divs(2),2
+        do iz=1,divs(3),2
+          ! generate 6 tetrahedra for this point
+          do itetra=1,6
+            ! each tetrahdra has 10 points
+            do isummit=1,10
+              gp = [ix,iy,iz]+tetra_6qshifts(:,isummit,itetra)
+              ! Get eigenvalues
+              ik = grid(divs,gp)
+              eig10(isummit) = eig(ik)
+            end do
+            ! fit energies
+            call fit10_affine(eig10,parm_eig)
+            ! now apply hibrid tetrahedron to each of the 8 tetrahedra
+            do jtetra=1,8
+              do jsummit=1,4
+                idx10 = tetra8(jsummit,jtetra)
+                eig4(jsummit) = eig10(idx10)
+                kpt4(:,jsummit) = kpt10(:,idx10)
+              end do
+              ! get hybrid weights
+              call hybridtetra(kpt4,eig4,mat4,parm_eig,parm_mat,wvals,nw,integral_tmp,idepth)
+              integral = integral + integral_tmp/nk
+            end do
+          end do
+        end do
+      end do
+    end do
+    call cpu_time(stop_time)
+    write(*,'(a30,f12.6,a)') 'quadratic affine dos took:',(stop_time-start_time), ' [s]'
+    write(fname,'(a,i0,a,i0,a)') 'dosqsa',divs(1),'d',idepth,'.dat'
+    call write_file(fname,nw,wvals,integral)
+
+
+
+    ! Compute DOS with quadratic tetrahedron (fitting the velocities)
+    call cpu_time(start_time)
+    integral = zero
     ! loop over points
     do ix=1,divs(1)
       do iy=1,divs(2)
@@ -884,6 +998,8 @@ program fit
         end do
       end do
     end do
+    call cpu_time(stop_time)
+    write(*,'(a30,f12.6,a)') 'quadratic velocity dos took:',(stop_time-start_time), ' [s]'
     write(fname,'(a,i0,a,i0,a)') 'dosq',divs(1),'d',idepth,'.dat'
     call write_file(fname,nw,wvals,integral)
 
@@ -929,7 +1045,6 @@ program fit
     integer :: iw,nw
     real(dp) :: wvals(nw), integral(nw)
     character(len=100) :: fname
-    write(*,*) fname
     open(unit=1,file=fname)
     do iw=1,nw
       write(1,*) wvals(iw), integral(iw)
