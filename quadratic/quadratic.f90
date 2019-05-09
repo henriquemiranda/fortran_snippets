@@ -114,7 +114,7 @@ module m_quadratic
 
   !solve a system of linear equations
   call dgelss(10,10,1,a,10,b,10,sgval,rcond,irank,work,lwork,info)
-  parm = b(:10)
+  parm = b
  end subroutine fit10
 
  subroutine fit4d(kpts,eigs,vels,parm,info)
@@ -174,36 +174,35 @@ module m_tetralite
 
   use m_defs
   implicit none
-  integer :: tetra_6shifts(3,4,6)
+  integer :: tetra_6lshifts(3,4,6)
 
   private :: f
   contains
   subroutine tetralite_init()
-    tetra_6shifts(:,1,1) = [0,0,0]
-    tetra_6shifts(:,2,1) = [1,0,0]
-    tetra_6shifts(:,3,1) = [0,1,0]
-    tetra_6shifts(:,4,1) = [1,0,1]
-    tetra_6shifts(:,1,2) = [1,0,0]
-    tetra_6shifts(:,2,2) = [1,1,0]
-    tetra_6shifts(:,3,2) = [0,1,0]
-    tetra_6shifts(:,4,2) = [1,0,1]
-    tetra_6shifts(:,1,3) = [0,1,0]
-    tetra_6shifts(:,2,3) = [1,1,0]
-    tetra_6shifts(:,3,3) = [1,0,1]
-    tetra_6shifts(:,4,3) = [1,1,1]
-    tetra_6shifts(:,1,4) = [0,0,0]
-    tetra_6shifts(:,2,4) = [0,1,0]
-    tetra_6shifts(:,3,4) = [0,0,1]
-    tetra_6shifts(:,4,4) = [1,0,1]
-    tetra_6shifts(:,1,5) = [0,0,1]
-    tetra_6shifts(:,2,5) = [1,0,1]
-    tetra_6shifts(:,3,5) = [0,1,0]
-    tetra_6shifts(:,4,5) = [0,1,1]
-    tetra_6shifts(:,1,6) = [0,1,0]
-    tetra_6shifts(:,2,6) = [1,0,1]
-    tetra_6shifts(:,3,6) = [0,1,1]
-    tetra_6shifts(:,4,6) = [1,1,1]
-
+    tetra_6lshifts(:,1,1) = [0,0,0]
+    tetra_6lshifts(:,2,1) = [1,0,0]
+    tetra_6lshifts(:,3,1) = [0,1,0]
+    tetra_6lshifts(:,4,1) = [1,0,1]
+    tetra_6lshifts(:,1,2) = [1,0,0]
+    tetra_6lshifts(:,2,2) = [1,1,0]
+    tetra_6lshifts(:,3,2) = [0,1,0]
+    tetra_6lshifts(:,4,2) = [1,0,1]
+    tetra_6lshifts(:,1,3) = [0,1,0]
+    tetra_6lshifts(:,2,3) = [1,1,0]
+    tetra_6lshifts(:,3,3) = [1,0,1]
+    tetra_6lshifts(:,4,3) = [1,1,1]
+    tetra_6lshifts(:,1,4) = [0,0,0]
+    tetra_6lshifts(:,2,4) = [0,1,0]
+    tetra_6lshifts(:,3,4) = [0,0,1]
+    tetra_6lshifts(:,4,4) = [1,0,1]
+    tetra_6lshifts(:,1,5) = [0,0,1]
+    tetra_6lshifts(:,2,5) = [1,0,1]
+    tetra_6lshifts(:,3,5) = [0,1,0]
+    tetra_6lshifts(:,4,5) = [0,1,1]
+    tetra_6lshifts(:,1,6) = [0,1,0]
+    tetra_6lshifts(:,2,6) = [1,0,1]
+    tetra_6lshifts(:,3,6) = [0,1,1]
+    tetra_6lshifts(:,4,6) = [1,1,1]
   end subroutine
 
   pure function grid(divs,gp) result(ik)
@@ -503,9 +502,13 @@ module m_dividetetra
   implicit none
   integer :: ieigs(2,10)
   integer :: tetra8(4,8)
+  integer :: tetra_6qshifts(3,10,6)
 
   contains
   subroutine dividetetra_init()
+    ! Initialization routine
+    integer :: itetra
+
     ! Indexes of the middlepoints w.r.t initial tetrahedron
     ieigs(:,1) = [1,2] !5
     ieigs(:,2) = [1,3] !6
@@ -524,6 +527,17 @@ module m_dividetetra
     tetra8(:,6) = [7,8,10, 5]
     tetra8(:,7) = [7,8, 6, 9]
     tetra8(:,8) = [7,8, 6, 5]
+
+    ! Now I generate shifts for quadratic tetrahedron
+    ! this is done by scaling the original shifts by 2
+    ! and computing the 10 midpoints for each of the 6 tetrahedra
+    do itetra=1,6
+      ! the first 4 shifts are just a copy
+      tetra_6qshifts(:,:4,itetra) = 2*tetra_6lshifts(:,:,itetra)
+      ! the additional 6 are the midpoints
+      tetra_6qshifts(:,5:,itetra) = nint(get_6midkpts(two*tetra_6lshifts(:,:,itetra)))
+    end do
+
   end subroutine dividetetra_init
 
   function get_6midkpts(kpts) result(mid)
@@ -678,6 +692,7 @@ program fit
 
     ! Initialize
     parm_eig = parm_eig
+    call tetralite_init()
     call dividetetra_init()
 
     nw = 10
@@ -708,11 +723,13 @@ program fit
     integer :: ix,iy,iz
     integer :: ik,nk,nw
     integer :: itetra,isummit,idepth
+    integer :: jtetra,jsummit,idx10
     integer :: band
     integer :: divs(3),ind(4),gp(3)
     character(len=100) :: fname
     real(dp) :: emin,emax,step
     real(dp) :: kpt(3),kpt4(3,4),eig4(4),mat4(4),vel4(3,4)
+    real(dp) :: kpt10(3,10),eig10(10),mat10(10)
     real(dp) :: parm_eig(10)
     real(dp),allocatable :: eig(:),vel(:,:)
     real(dp),allocatable :: wvals(:)
@@ -725,7 +742,7 @@ program fit
     divs = [6,6,6]
     divs = [8,8,8]
     divs = [10,10,10]
-    divs = [20,20,20]
+    !divs = [20,20,20]
     !divs = [30,30,30]
     !divs = [40,40,40]
     !divs = [50,50,50]
@@ -738,8 +755,6 @@ program fit
     allocate(dweight(4,nw))
     allocate(integral(nw))
     allocate(integral_tmp(nw))
-
-    call tetralite_init()
 
     ! Evaluate function on each kpoint
     ! We want to precompute the values of the function in the BZ and then use then to compute DOS
@@ -761,6 +776,10 @@ program fit
         end do
       end do
     end do
+    ! For the moment I set the matrix elements to zero
+    mat4  = one
+    mat10 = one
+
 
     ! Determine DOS energy range
     emin = minval(eig)-0.2_dp
@@ -776,7 +795,7 @@ program fit
           ! generate 6 tetrahedra for this point
           do itetra=1,6
             do isummit=1,4
-              gp = [ix,iy,iz]+tetra_6shifts(:,isummit,itetra)
+              gp = [ix,iy,iz]+tetra_6lshifts(:,isummit,itetra)
               ! Get eigenvalues and velocities
               ik = grid(divs,gp)
               eig4(isummit)   = eig(ik)
@@ -796,7 +815,44 @@ program fit
     write(fname,'(a,i0,a)') 'dosl',divs(1),'.dat'
     call write_file(fname,nw,wvals,integral)
 
-    ! Compute DOS with quadratic tetrahedron
+    ! Compute DOS with quadratic tetrahedron (fitting only scalars)
+    integral = zero
+    idepth = 3
+    ! loop over points
+    do ix=1,divs(1),2
+      do iy=1,divs(2),2
+        do iz=1,divs(3),2
+          ! generate 6 tetrahedra for this point
+          do itetra=1,6
+            ! each tetrahdra has 10 points
+            do isummit=1,10
+              gp = [ix,iy,iz]+tetra_6qshifts(:,isummit,itetra)
+              ! Get eigenvalues and velocities
+              ik = grid(divs,gp)
+              eig10(isummit)   = eig(ik)
+              kpt10(:,isummit) = grid_kpoint(divs,gp)
+            end do
+            ! fit energies
+            call fit10(kpt10,eig10,parm_eig,info)
+            ! now apply hibrid tetrahedron to each of the 8 tetrahedra
+            do jtetra=1,8
+              do jsummit=1,4
+                idx10 = tetra8(jsummit,jtetra)
+                eig4(jsummit)   = eig10(idx10)
+                kpt4(:,jsummit) = kpt10(:,idx10)
+              end do
+              ! get hybrid weights
+              call hybridtetra(kpt4,eig4,mat4,parm_eig,parm_mat,wvals,nw,integral_tmp,idepth)
+              integral = integral + integral_tmp/nk
+            end do
+          end do
+        end do
+      end do
+    end do
+    write(fname,'(a,i0,a,i0,a)') 'dosqs',divs(1),'d',idepth,'.dat'
+    call write_file(fname,nw,wvals,integral)
+
+    ! Compute DOS with quadratic tetrahedron (fitting the velocities)
     integral = zero
     idepth = 1
     mat4 = one
@@ -807,7 +863,7 @@ program fit
           ! generate 6 tetrahedra for this point
           do itetra=1,6
             do isummit=1,4
-              gp = [ix,iy,iz]+tetra_6shifts(:,isummit,itetra)
+              gp = [ix,iy,iz]+tetra_6lshifts(:,isummit,itetra)
               ! Get eigenvalues and velocities
               ik = grid(divs,gp)
               eig4(isummit)   = eig(ik)
