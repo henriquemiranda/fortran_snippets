@@ -426,64 +426,57 @@ module m_tetralite
            f(4, 3, w, eig))
   end function
 
-  subroutine tetralite_delta(eig,wvals,nw,dweight)
+  subroutine tetralite_delta(eig,wvals,nw,alpha,integral)
     ! function to evaluate delta
     ! theare are the expressions from
     ! A.H. MacDonald, S.H. Vosko, and P.T. Coleridge,
     ! Journal of Physics C: Solid State Physics 12, 2991 (1979).
     ! as implemented in spglib implemented by Atsushi Togo translated into fortran
     integer,intent(in) :: nw
-    real(dp),intent(in) :: eig(4)
+    real(dp),intent(in) :: eig(4),alpha(4)
     real(dp),intent(in) :: wvals(nw)
-    real(dp),intent(out) :: dweight(4,nw)
+    real(dp),intent(out) :: integral(nw)
     integer :: iw
-    real(dp) :: w
-    real(dp) :: g
+    real(dp) :: w,g
 
     do iw=1,nw
       w = wvals(iw)
 
       ! w < e1 nothing to do
-      if (w < eig(1)) then
-        dweight(:,iw) = zero
-        cycle
-      end if
+      if (w < eig(1)) cycle
 
       ! e1 < w < e2
       if (w < eig(2)) then
         g = g1(w,eig)/3.0_dp
-        dweight(1,iw) = g*I10(w,eig)
-        dweight(2,iw) = g*I11(w,eig)
-        dweight(3,iw) = g*I12(w,eig)
-        dweight(4,iw) = g*I13(w,eig)
+        integral(iw) = integral(iw)+g*I10(w,eig)*alpha(1)
+        integral(iw) = integral(iw)+g*I11(w,eig)*alpha(2)
+        integral(iw) = integral(iw)+g*I12(w,eig)*alpha(3)
+        integral(iw) = integral(iw)+g*I13(w,eig)*alpha(4)
         cycle
       endif
 
       ! e2 < eps < e3
       if (w < eig(3)) then
         g = g2(w,eig)/3.0_dp
-        dweight(1,iw) = g*I20(w,eig)
-        dweight(2,iw) = g*I21(w,eig)
-        dweight(3,iw) = g*I22(w,eig)
-        dweight(4,iw) = g*I23(w,eig)
+        integral(iw) = integral(iw)+g*I20(w,eig)*alpha(1)
+        integral(iw) = integral(iw)+g*I21(w,eig)*alpha(2)
+        integral(iw) = integral(iw)+g*I22(w,eig)*alpha(3)
+        integral(iw) = integral(iw)+g*I23(w,eig)*alpha(4)
         cycle
       endif
 
-      ! e3 < eps < e4
+      ! e3 < eps
       if (w < eig(4)) then
         g = g3(w,eig)/3.0_dp
-        dweight(1,iw) = g*I30(w,eig)
-        dweight(2,iw) = g*I31(w,eig)
-        dweight(3,iw) = g*I32(w,eig)
-        dweight(4,iw) = g*I33(w,eig)
+        integral(iw) = integral(iw)+g*I30(w,eig)*alpha(1)
+        integral(iw) = integral(iw)+g*I31(w,eig)*alpha(2)
+        integral(iw) = integral(iw)+g*I32(w,eig)*alpha(3)
+        integral(iw) = integral(iw)+g*I33(w,eig)*alpha(4)
         cycle
       endif
 
       ! e4 < eps
-      if (eig(4) < w) then
-        dweight(:,iw:) = zero
-        exit
-      end if
+      if (eig(4) < w) exit
 
     end do
 
@@ -631,22 +624,18 @@ module m_dividetetra
     real(dp),intent(in) :: wvals(nw)
     real(dp),intent(out) :: integral(nw)
 
-    integer :: itetra,isummit,idx10
+    integer :: itetra
     integer :: ind(4)
-    real(dp) :: eig4(4)
-    real(dp) :: weights(4,nw)
+    real(dp) :: eig4(4),mat4(4)
 
     ! Evaluate and add the contribution of 8 tetrahedra
     integral = 0.0_dp
     do itetra=1,8
       eig4(:) = eig10(tetra8(:,itetra))
+      mat4(:) = mat10(tetra8(:,itetra))
       ind = [1,2,3,4]
       call sort_4tetra(eig4,ind)
-      call tetralite_delta(eig4,wvals,nw,weights)
-      do isummit=1,4
-        idx10 = tetra8(isummit,itetra)
-        integral(:) = integral(:) + weights((isummit),:)*mat10(idx10)
-      end do
+      call tetralite_delta(eig4,wvals,nw,mat4(ind),integral)
     end do
   end subroutine
 
@@ -662,9 +651,8 @@ module m_dividetetra
     integer,optional,intent(in) :: depth
     integer  :: itetra,idepth
     integer  :: ind(4)
-    real(dp) :: eig(4)
+    real(dp) :: eig(4),mat(4)
     real(dp) :: mid10(3,10),eig10(10),mat10(10)
-    real(dp) :: weights(4,nw)
 
     ! how deep are we?
     idepth = 1; if (present(depth)) idepth = depth
@@ -673,9 +661,9 @@ module m_dividetetra
     ! if in the desired depth sum the contribution of this tetrahedron
     if (idepth==n) then
       eig = eig4
+      mat = 1.0_dp/8.0_dp**(idepth-1)
       call sort_4tetra(eig,ind)
-      call tetralite_delta(eig,wvals,nw,weights)
-      integral = integral + sum(weights,1)/8.0_dp**(idepth-1)
+      call tetralite_delta(eig,wvals,nw,mat,integral)
     ! otherwise go deeper for each tetrahedron
     else
       ! copy 4 vertices data
@@ -800,8 +788,7 @@ program fit
     band = 1
 
     ! choose how many times to apply recursion
-    idepth = 3
-
+    idepth = 2
     divs = [2,2,2]
     divs = [4,4,4]
     divs = [6,6,6]
@@ -812,6 +799,9 @@ program fit
     !divs = [40,40,40]
     divs = [50,50,50]
     nw = 500
+
+    write(*,*) divs
+    write(*,*) idepth
 
     nk = divs(1)*divs(2)*divs(3)
     allocate(eig(nk))
@@ -872,8 +862,8 @@ program fit
               !call parabola_band(kpt,eig4(isummit),vel4(:,isummit))
             end do
             call sort_4tetra(eig4,ind)
-            call tetralite_delta(eig4,wvals,nw,dweight)
-            integral = integral + sum(dweight,1)/nk
+            mat4 = one/nk
+            call tetralite_delta(eig4,wvals,nw,mat4,dweight)
           end do
         end do
       end do
