@@ -107,6 +107,21 @@ module m_hashtable
     end do
   end subroutine hashtable_keys
 
+  subroutine hashtable_items(self,items)
+    ! Get an array with all the keys in hashtable
+    type(hashtable_t) ::  self
+    integer :: item,ibucket,idx
+    integer,allocatable :: items(:,:)
+    allocate(items(2,sum(self%buckets(:)%nitems)))
+    idx = 0
+    do ibucket=1,self%nbuckets
+      do item=1,self%buckets(ibucket)%nitems
+        idx = idx + 1
+        items(:,idx) = self%buckets(ibucket)%items(:,item)
+      end do
+    end do
+  end subroutine hashtable_items
+
   subroutine hashtable_cleanup(self)
     ! Free up memory in all the buckets
     ! this should be done only after all the add operations are finished
@@ -147,15 +162,12 @@ program hash_main
   use m_hashtable
   implicit none
   type(hashtable_t) :: hash
-  integer :: val, ierr
+  integer :: val, ierr, ii
+  integer,allocatable :: keys(:), items(:,:)
 
   hash = hashtable_init(10,1,1)
   call hashtable_add(hash,1,3)
   call hashtable_add(hash,2,2)
-  call hashtable_add(hash,3,2)
-  call hashtable_add(hash,4,2)
-  call hashtable_add(hash,5,2)
-  call hashtable_add(hash,6,2)
   call hashtable_add(hash,7,2)
   call hashtable_add(hash,30,1235)
   call hashtable_add(hash,30,1236)
@@ -165,6 +177,17 @@ program hash_main
   call hashtable_print(hash)
   call hashtable_get(hash,30,val,ierr)
   write(*,*) val, ierr
+
+  call hashtable_keys(hash,keys)
+  write(*,*) keys
+  deallocate(keys)
+
+  call hashtable_items(hash,items)
+  do ii=1,size(items,2)
+    write(*,'(i5,a,i5)') items(1,ii),'->',items(2,ii)
+  end do
+  deallocate(items)
+
   call hashtable_free(hash)
 
 end program hash_main
