@@ -38,10 +38,13 @@ module m_quadratic
    real(dp),intent(in) :: parm(10)
    real(dp) :: x,y,z
    x = kpt(1);y = kpt(2);z = kpt(3)
-   f = parm(1) + &
-       parm(2)*x   + parm(3)*y   + parm(4)*z + &
-       parm(5)*x*y + parm(6)*x*z + parm(7)*y*z + &
-       parm(8)*x*x + parm(9)*y*y + parm(10)*z*z
+   !f = parm(1) + &
+   !    parm(2)*x   + parm(3)*y   + parm(4)*z + &
+   !    parm(5)*x*y + parm(6)*x*z + parm(7)*y*z + &
+   !    parm(8)*x*x + parm(9)*y*y + parm(10)*z*z
+   f = parm(1)+x*(parm(2)+y*parm(5)+z*parm(6)+x*parm(8))+&
+               y*(parm(3)+z*parm(7)          +y*parm(9))+&
+               z*(parm(4)                    +z*parm(10))
  end function f
 
  function df(kpt,parm)
@@ -159,21 +162,32 @@ module m_quadratic
   real(dp),intent(in) :: eigs(10)
   real(dp),intent(out) :: parm(10)
 
-  real(dp) :: inva(10,10)
+  !real(dp) :: inva(10,10)
 
   ! Fill in the inverse of the A matrix
-  inva(:,1)  = [1,-3,-3,-3, 4, 4, 4, 2, 2, 2]
-  inva(:,2)  = [0,-1, 0, 0, 0, 0, 0, 2, 0, 0]
-  inva(:,3)  = [0, 0,-1, 0, 0, 0, 0, 0, 2, 0]
-  inva(:,4)  = [0, 0, 0,-1, 0, 0, 0, 0, 0, 2]
-  inva(:,5)  = [0, 4, 0, 0,-4,-4, 0,-4, 0, 0]
-  inva(:,6)  = [0, 0, 4, 0,-4, 0,-4, 0,-4, 0]
-  inva(:,7)  = [0, 0, 0, 4, 0,-4,-4, 0, 0,-4]
-  inva(:,8)  = [0, 0, 0, 0, 4, 0, 0, 0, 0, 0]
-  inva(:,9)  = [0, 0, 0, 0, 0, 0, 4, 0, 0, 0]
-  inva(:,10) = [0, 0, 0, 0, 0, 4, 0, 0, 0, 0]
+  !inva(:,1)  = [1,-3,-3,-3, 4, 4, 4, 2, 2, 2]
+  !inva(:,2)  = [0,-1, 0, 0, 0, 0, 0, 2, 0, 0]
+  !inva(:,3)  = [0, 0,-1, 0, 0, 0, 0, 0, 2, 0]
+  !inva(:,4)  = [0, 0, 0,-1, 0, 0, 0, 0, 0, 2]
+  !inva(:,5)  = [0, 4, 0, 0,-4,-4, 0,-4, 0, 0]
+  !inva(:,6)  = [0, 0, 4, 0,-4, 0,-4, 0,-4, 0]
+  !inva(:,7)  = [0, 0, 0, 4, 0,-4,-4, 0, 0,-4]
+  !inva(:,8)  = [0, 0, 0, 0, 4, 0, 0, 0, 0, 0]
+  !inva(:,9)  = [0, 0, 0, 0, 0, 0, 4, 0, 0, 0]
+  !inva(:,10) = [0, 0, 0, 0, 0, 4, 0, 0, 0, 0]
+  !call dgemv('N',10,10,one,inva,10,eigs,1,zero,parm,1)
 
-  call dgemv('N',10,10,one,inva,10,eigs,1,zero,parm,1)
+  parm( 1) =  eigs(1)
+  parm( 2) = -3.0_dp*eigs(1)-eigs(2)+4.0_dp*eigs(5)
+  parm( 3) = -3.0_dp*eigs(1)-eigs(3)+4.0_dp*eigs(6)
+  parm( 4) = -3.0_dp*eigs(1)-eigs(4)+4.0_dp*eigs(7)
+  parm( 5) = +4.0_dp*(eigs(1)-eigs(5)-eigs(6)+eigs(8))
+  parm( 6) = +4.0_dp*(eigs(1)-eigs(5)-eigs(7)+eigs(10))
+  parm( 7) = +4.0_dp*(eigs(1)-eigs(6)-eigs(7)+eigs(9))
+  parm( 8) = +2.0_dp*(eigs(1)+eigs(2)-2.0_dp*eigs(5))
+  parm( 9) = +2.0_dp*(eigs(1)+eigs(3)-2.0_dp*eigs(6))
+  parm(10) = +2.0_dp*(eigs(1)+eigs(4)-2.0_dp*eigs(7))
+
  end subroutine fit10_affine
 
  subroutine fit4d(kpts,eigs,vels,parm,info)
@@ -788,7 +802,7 @@ program fit
     band = 1
 
     ! choose how many times to apply recursion
-    idepth = 2
+    idepth = 1
     divs = [2,2,2]
     divs = [4,4,4]
     divs = [6,6,6]
@@ -797,7 +811,8 @@ program fit
     !divs = [20,20,20]
     !divs = [30,30,30]
     !divs = [40,40,40]
-    divs = [50,50,50]
+    !divs = [50,50,50]
+    divs = [100,100,100]
     nw = 500
 
     write(*,*) divs
@@ -845,6 +860,7 @@ program fit
     ! Compute DOS with linear tetrahedron
     call cpu_time(start_time)
     integral = zero
+    mat4 = one/nk
     do ix=1,divs(1)
       do iy=1,divs(2)
         do iz=1,divs(3)
@@ -862,8 +878,7 @@ program fit
               !call parabola_band(kpt,eig4(isummit),vel4(:,isummit))
             end do
             call sort_4tetra(eig4,ind)
-            mat4 = one/nk
-            call tetralite_delta(eig4,wvals,nw,mat4,dweight)
+            call tetralite_delta(eig4,wvals,nw,mat4,integral)
           end do
         end do
       end do
@@ -876,6 +891,7 @@ program fit
     ! Compute DOS with quadratic tetrahedron (fitting only scalars)
     call cpu_time(start_time)
     integral = zero
+    mat4=one
     ! loop over points
     do ix=1,divs(1),2
       do iy=1,divs(2),2
