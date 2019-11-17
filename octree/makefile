@@ -1,10 +1,9 @@
 FC := gfortran
 FCFLAGS := -g -Wall -O3
 
-all: octree
-
-octree: octree.f90
+all:
 	$(FC) $(FCFLAGS) -o octree octree.f90 $(LIBS)
+	./octree
 
 clean:
 	rm octree
